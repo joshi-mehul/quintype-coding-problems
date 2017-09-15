@@ -1,43 +1,92 @@
-const webpack = require("webpack");
-const process = require('process');
-const path = require('path');
+const path = require('path')
+const webpack = require('webpack')
+const merge = require('webpack-merge')
+const HtmlwebpackPlugin = require('html-webpack-plugin')
+const postcssImport = require('postcss-import')
+const postcssUrl = require('postcss-url')
+const autoprefixer = require('autoprefixer')
 
-const ExtractTextPlugin = require('extract-text-webpack-plugin');
+const TARGET = process.env.npm_lifecycle_event
+const PATHS = {
+  src: [path.join(__dirname, 'src')],
+  dist: path.join(__dirname, 'dist')
+}
 
-const PUBLIC_PATH='/assets/';
-const OUTPUT_DIRECTORY = __dirname + `/public/${PUBLIC_PATH}`;
+process.env.BABEL_ENV = TARGET
 
-const BABEL_PRESET = {
-  loader: 'babel-loader',
-  options: {
-    presets: ['es2015']
-  }
-};
+var common = {
+  entry: PATHS.src,
+  // resolve extensions
+  resolve: {
+    extensions: ['', '.js', '.jsx']
+  },
+  output: {
+    path: PATHS.dist,
+    filename: 'bundle.js'
+  },
+  module: {
+    loaders: [
+      {
+        test: /\.scss$/,
+        loaders: ['style', 'css', 'postcss', 'sass'],
+        include: PATHS.src
+      },
+      {
+        test: /\.jsx?$/,
+        loaders: ['babel?cacheDirectory'],
+        include: PATHS.src
+      },
+      {
+        test: /\.(png|jpg)$/,
+        loader: 'url-loader?limit=80000',
+        include: PATHS.src
+      }, {
+        test: /\.(woff|woff2)(\?v=\d+\.\d+\.\d+)?$/,
+        loader: 'url?limit=10000&mimetype=application/font-woff&prefix=fonts'
+      }, {
+        test: /\.ttf(\?v=\d+\.\d+\.\d+)?$/,
+        loader: 'url?limit=10000&mimetype=application/octet-stream&prefix=fonts'
+      }, {
+        test: /\.eot(\?v=\d+\.\d+\.\d+)?$/,
+        loader: 'url?limit=10000&mimetype=application/vnd.ms-fontobject&prefix=fonts'
+      }, {
+        test: /\.svg(\?v=\d+\.\d+\.\d+)?$/,
+        loader: 'url?limit=10000&mimetype=image/svg+xml&prefix=fonts'
+      }
+    ]
+  },
+  postcss: function (webpack) {
+    return [autoprefixer, postcssImport({addDependencyTo: webpack}), postcssUrl({})]
+  },
+  plugins: [
+    new HtmlwebpackPlugin({
+      title: 'React DevKit',
+      template: 'src/index.html',
+      inject: false
+    })
+  ]
+}
 
-module.exports = {
-    entry: {
-      app: "./app/client/app.js",
-      style: "./app/stylesheets/style.scss"
+if (TARGET === 'start' || !TARGET) {
+  module.exports = merge(common, {
+    devtool: 'eval-source-map',
+    devServer: {
+      historyApiFallback: true,
+      hot: true,
+      inline: true,
+      progress: true,
+      stats: 'errors-only',
+      host: process.env.HOST,
+      port: process.env.PORT
     },
-    output: {
-        path: OUTPUT_DIRECTORY,
-        filename: `[name].js`,
-        publicPath: PUBLIC_PATH,
-    },
-    module: {
-      rules: [
-        { test: /\.jsx?$/, exclude: /node_modules/, use: BABEL_PRESET },
-        { test: /\.jsx?$/, include: /node_modules\/quintype-toddy-libs/, use: BABEL_PRESET },
-        { test: /\.(sass|scss)$/, loader: ExtractTextPlugin.extract('css-loader!sass-loader') },
-        {
-          test: /\.(jpe?g|gif|png|svg|woff|ttf|wav|mp3)$/,
-          loader: "file-loader",
-          query: {
-            context: './app/assets',
-            name: "[name].[ext]"
-          }
-        }
-      ]
-    },
-    plugins: [new ExtractTextPlugin({ filename: "[name].css", allChunks: true })]
-};
+    plugins: [
+      new webpack.HotModuleReplacementPlugin()
+    ]
+  })
+}
+
+if (TARGET === 'build') {
+  module.exports = merge(common, {
+    // Add production config code
+  })
+}
